@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker - AI Powered Personal Finance</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Chart.js via CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Tesseract.js via CDN for On-Device OCR Fallback -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body>
+  <!-- Top Navigation & Header -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">₹</div>
+        <div class="brand-text">
+          <h1>Expense Tracker</h1>
+          <span class="badge-ai">Smart Personal Finance</span>
+        </div>
+      </div>
+
+      <!-- Top Navigation Tabs (Dashboard vs Receipts) - Hidden until signed in -->
+      <nav class="nav-tabs auth-nav-item hidden" aria-label="Main Navigation">
+        <button type="button" id="navDashboardBtn" class="nav-tab active">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          <span>Dashboard</span>
+        </button>
+        <button type="button" id="navReceiptsBtn" class="nav-tab">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          <span>Receipts</span>
+          <span id="receiptCountBadge" class="nav-count-badge">0</span>
+        </button>
+      </nav>
+
+      <!-- Month Selector Controls - Hidden until signed in -->
+      <div class="month-controls auth-nav-item hidden" role="region" aria-label="Month selection">
+        <button id="prevMonthBtn" class="btn-icon" aria-label="Previous month" title="Previous month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="month-picker-wrapper">
+          <input type="month" id="monthPicker" aria-label="Selected month">
+          <span id="currentMonthHeading" class="current-month-label">October 2026</span>
+        </div>
+        <button id="nextMonthBtn" class="btn-icon" aria-label="Next month" title="Next month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+      </div>
+
+      <!-- Header Action Buttons -->
+      <div class="header-actions">
+        <!-- Auth Area (Login / Register / User Profile) -->
+        <div id="headerAuthArea" class="header-auth-area">
+          <button type="button" id="openAuthBtn" class="btn-auth-trigger hidden" aria-label="Sign in or register">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            <span>Sign In</span>
+          </button>
+          <div id="userProfilePill" class="user-profile-pill hidden">
+            <span class="user-avatar" aria-hidden="true">👤</span>
+            <span id="userNameText" class="user-name-text">Account</span>
+            <button type="button" id="logoutBtn" class="btn-logout" title="Sign out" aria-label="Sign out">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+              <span>Logout</span>
+            </button>
+          </div>
+        </div>
+
+        <button id="openChatBtn" class="btn-chat-trigger auth-nav-item hidden" aria-label="Open AI finance assistant">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span>Ask AI Assistant</span>
+          <span id="chatUnreadBadge" class="unread-dot hidden" aria-label="New responses"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <div class="app-container">
+
+      <!-- ================= LANDING / AUTH GATE VIEW ================= -->
+      <!-- Displayed when visitor is NOT logged in -->
+      <section id="authLandingView" class="landing-auth-view" aria-label="Welcome and Authentication">
+        <div class="landing-grid">
+          
+          <!-- Left: Product Overview & Key Benefits -->
+          <div class="landing-hero-col">
+            <div class="landing-tagline">
+              <span class="hero-chip">✨ Smart Expense & Receipt Tracking</span>
+            </div>
+            <h1 class="landing-hero-title">Take Complete Control of Your Personal Spending</h1>
+            <p class="landing-hero-desc">
+              Stop losing receipts and typing expenses manually. Automatically scan receipts with smart OCR, visualize monthly cash flow, and get actionable budget insights from your AI financial assistant.
+            </p>
+
+            <div class="landing-features-grid">
+              <div class="landing-feature-card">
+                <span class="feature-icon">⚡</span>
+                <div class="feature-info">
+                  <strong>Smart Receipt Scanner</strong>
+                  <p>Snap or upload receipts; totals, dates, and categories are extracted instantly.</p>
+                </div>
+              </div>
+
+              <div class="landing-feature-card">
+                <span class="feature-icon">📊</span>
+                <div class="feature-info">
+                  <strong>Spending Analytics</strong>
+                  <p>Interactive category breakdowns, 6-month trends, and monthly cash flow.</p>
+                </div>
+              </div>
+
+              <div class="landing-feature-card">
+                <span class="feature-icon">🤖</span>
+                <div class="feature-info">
+                  <strong>AI Financial Assistant</strong>
+                  <p>Ask natural questions about your expenses and get personalized budget tips.</p>
+                </div>
+              </div>
+
+              <div class="landing-feature-card">
+                <span class="feature-icon">🔒</span>
+                <div class="feature-info">
+                  <strong>Secure Cloud Storage</strong>
+                  <p>Your expenses are isolated, encrypted, and saved safely to your account.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- 1-Click Interactive Demo for Guests -->
+            <div class="landing-demo-box">
+              <div class="demo-box-content">
+                <strong>Want to explore first without signing up?</strong>
+                <p>Preview the interactive dashboard and test features with 6 months of sample data.</p>
+              </div>
+              <button type="button" id="landingExploreDemoBtn" class="btn-demo-guest">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <span>Try Live Demo as Guest</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Right: Embedded Sign In / Create Account Card -->
+          <div class="landing-auth-col">
+            <div class="landing-auth-card">
+              <div class="landing-card-header">
+                <h2 id="landingAuthTitle">Sign In to Your Account</h2>
+                <p id="landingAuthSubtitle">Access your financial dashboard & saved receipts</p>
+              </div>
+
+              <!-- Tab Selector -->
+              <div class="landing-auth-tabs" role="tablist">
+                <button type="button" id="landingTabLogin" class="landing-tab-btn active" role="tab" aria-selected="true">Sign In</button>
+                <button type="button" id="landingTabRegister" class="landing-tab-btn" role="tab" aria-selected="false">Create Account</button>
+              </div>
+
+              <!-- Error Banner -->
+              <div id="landingAuthError" class="auth-error-banner hidden" role="alert">
+                <span class="error-icon">⚠️</span>
+                <span id="landingAuthErrorText">Invalid credentials</span>
+              </div>
+
+              <form id="landingAuthForm" class="landing-auth-form" novalidate>
+                <!-- Full Name (Only for registration) -->
+                <div id="landingNameGroup" class="form-group hidden">
+                  <label for="landingName" class="form-label">Full Name</label>
+                  <input type="text" id="landingName" class="form-input" placeholder="e.g. Ankit Rathore" autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                  <label for="landingEmail" class="form-label">Email Address</label>
+                  <input type="email" id="landingEmail" class="form-input" placeholder="you@example.com" autocomplete="email" required>
+                </div>
+
+                <div class="form-group">
+                  <label for="landingPassword" class="form-label">Password</label>
+                  <input type="password" id="landingPassword" class="form-input" placeholder="••••••••" autocomplete="current-password" minlength="6" required>
+                  <span class="form-hint">At least 6 characters</span>
+                </div>
+
+                <button type="submit" id="landingAuthSubmit" class="btn-primary btn-block btn-lg">
+                  Sign In to Dashboard
+                </button>
+
+                <p class="auth-card-footer">
+                  🔒 Secure JWT session • 100% private financial data
+                </p>
+              </form>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= APP WORKSPACE ================= -->
+      <!-- Displayed once user is logged in (or enters as guest demo) -->
+      <div id="appWorkspace" class="app-workspace hidden">
+
+        <!-- Guest Demo Notice Banner (Only shown if exploring in demo mode) -->
+        <div id="demoGuestNotice" class="demo-guest-banner hidden">
+          <div class="demo-notice-text">
+            💡 <strong>Guest Demo Mode:</strong> You are exploring sample data.
+            <button type="button" id="demoNoticeSignInBtn" class="btn-link-action">Sign In / Create Account</button>
+            to save your own expenses to cloud database.
+          </div>
+          <button type="button" id="dismissDemoNoticeBtn" class="btn-dismiss-sm" aria-label="Dismiss">&times;</button>
+        </div>
+
+        <!-- ================= VIEW 1: DASHBOARD ================= -->
+        <div id="viewDashboard">
+
+        <!-- Top Executive Overview Stat Cards (Screenshot 1) -->
+        <section class="overview-stats-grid" aria-label="Key Performance Indicators">
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Total Spend</span>
+              <span class="stat-icon" aria-hidden="true">₹</span>
+            </div>
+            <div id="statTotalSpend" class="stat-value">₹0.00</div>
+            <span class="stat-sub">All time</span>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">This Month</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+            </div>
+            <div id="summaryExpenses" class="stat-value">₹0.00</div>
+            <span id="statMonthTrend" class="card-sub-trend trend-neutral">Current month baseline</span>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Total Receipts</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1-2-1z"></path></svg>
+            </div>
+            <div id="statTotalReceipts" class="stat-value">0</div>
+            <span class="stat-sub">Processed successfully</span>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-header">
+              <span class="stat-label">Top Category</span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="stat-icon" aria-hidden="true"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+            </div>
+            <div id="statTopCategory" class="stat-value">None yet</div>
+            <span id="statTopCategoryAmount" class="stat-sub">₹0.00</span>
+          </div>
+        </section>
+
+        <!-- Income & Balance Bar -->
+        <section class="income-balance-row" aria-label="Monthly Cash Flow">
+          <div class="cash-card cash-income">
+            <span class="cash-label">Monthly Income</span>
+            <span id="summaryIncome" class="cash-value">₹0.00</span>
+          </div>
+          <div class="cash-card cash-balance">
+            <span class="cash-label">Net Balance</span>
+            <span id="summaryBalance" class="cash-value">₹0.00</span>
+          </div>
+        </section>
+
+        <!-- Side-by-Side Dual Charts (Screenshot 1) -->
+        <section class="charts-grid-row" aria-label="Visual Analytics">
+          <!-- Chart 1: Spending Trend Bar Chart (Last 6 months) -->
+          <div class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Spending Trend</h3>
+                <span class="panel-subtitle">Last 6 months</span>
+              </div>
+            </div>
+            <div class="chart-wrapper">
+              <div id="trendCanvasWrapper" class="chart-canvas-container">
+                <canvas id="trendChart" aria-label="Bar chart of monthly spending trend across last 6 months" role="img"></canvas>
+              </div>
+              <div id="emptyTrendState" class="empty-state-card hidden">
+                <p class="empty-title">No spending trend data</p>
+                <p class="empty-desc">Add expenses across months to visualize your 6-month financial trajectory.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Chart 2: Category Breakdown Chart (By total amount spent) -->
+          <div class="panel chart-panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">Category Breakdown</h3>
+                <span class="panel-subtitle">By total amount spent</span>
+              </div>
+            </div>
+            <div class="chart-wrapper">
+              <div id="chartCanvasWrapper" class="chart-canvas-container">
+                <canvas id="expenseChart" aria-label="Doughnut chart of monthly expenses by category" role="img"></canvas>
+              </div>
+              <div id="emptyChartState" class="empty-state-card hidden">
+                <p class="empty-title">No expense data</p>
+                <p class="empty-desc">Add an expense or scan a receipt to see your category breakdown.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Layout: Left Side (Form & Scanner) | Right Side (Monthly Transactions) -->
+        <div class="content-layout">
+          
+          <!-- Left Column: Add Transaction Form & Receipt Scanner -->
+          <div class="column-left">
+            
+            <!-- Add Transaction Panel -->
+            <section class="panel" aria-labelledby="addTxHeading">
+              <div class="panel-header">
+                <h2 id="addTxHeading" class="panel-title">Add Transaction</h2>
+              </div>
+
+              <!-- Scanned Receipt Review Notification Banner -->
+              <div id="reviewBanner" class="review-banner hidden" role="alert" aria-live="polite">
+                <div class="review-banner-main">
+                  <div class="review-banner-content">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="banner-icon" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                    <span id="reviewMerchantText">Receipt scanned! Please review and confirm the details below.</span>
+                  </div>
+                  <button type="button" id="dismissReviewBtn" class="btn-dismiss-review" aria-label="Dismiss review notification">&times;</button>
+                </div>
+                <!-- Multi-Category Breakdown Section -->
+                <div id="reviewBreakdownWrap" class="review-breakdown-wrap hidden">
+                  <div class="review-breakdown-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    <span>Multi-Category Breakdown Detected:</span>
+                  </div>
+                  <div id="reviewBreakdownChips" class="breakdown-chips-list"></div>
+                  <div class="review-breakdown-actions">
+                    <button type="button" id="splitReceiptBtn" class="btn-split-receipt" title="Save each category section as its own expense">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+                      <span>Split into Separate Category Expenses</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <form id="txForm" class="tx-form" novalidate>
+                <input type="hidden" id="txType" value="expense">
+
+                <!-- Type Toggle Buttons (Expense / Income) -->
+                <div class="form-group">
+                  <label class="form-label">Transaction Type</label>
+                  <div class="segmented-control" role="group" aria-label="Transaction Type Selection">
+                    <button type="button" id="typeExpenseBtn" class="segment-btn active" aria-pressed="true">Expense</button>
+                    <button type="button" id="typeIncomeBtn" class="segment-btn" aria-pressed="false">Income</button>
+                  </div>
+                </div>
+
+                <!-- Amount Input -->
+                <div class="form-group">
+                  <label for="txAmount" class="form-label">Amount (₹) *</label>
+                  <div class="input-with-symbol">
+                    <span class="currency-symbol" aria-hidden="true">₹</span>
+                    <input type="number" id="txAmount" class="form-input" placeholder="0.00" step="0.01" min="0.01" required>
+                  </div>
+                  <span id="amountError" class="field-error hidden" role="alert"></span>
+                </div>
+
+                <!-- Category Select -->
+                <div class="form-group">
+                  <label for="txCategory" class="form-label">Category *</label>
+                  <select id="txCategory" class="form-select" required>
+                    <option value="">-- Select Category --</option>
+                  </select>
+                  <span id="categoryError" class="field-error hidden" role="alert"></span>
+                </div>
+
+                <!-- Date Input -->
+                <div class="form-group">
+                  <label for="txDate" class="form-label">Date *</label>
+                  <input type="date" id="txDate" class="form-input" required>
+                  <span id="dateError" class="field-error hidden" role="alert"></span>
+                </div>
+
+                <!-- Note Input -->
+                <div class="form-group">
+                  <label for="txNote" class="form-label">Note / Description (Optional)</label>
+                  <input type="text" id="txNote" class="form-input" placeholder="e.g. Grocery run, Freelance invoice">
+                </div>
+
+                <span id="generalError" class="field-error hidden" role="alert"></span>
+
+                <button type="submit" id="txSubmitBtn" class="btn-primary btn-block">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  <span>Save Transaction</span>
+                </button>
+              </form>
+            </section>
+
+            <!-- Receipt Upload -->
+            <section class="panel" aria-labelledby="receiptHeading">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h2 id="receiptHeading" class="panel-title">Scan Receipt</h2>
+                  <span class="badge-gemini">Smart OCR Vision</span>
+                </div>
+              </div>
+
+              <!-- Upload Drop Zone -->
+              <div id="receiptDropZone" class="drop-zone" tabindex="0" role="region" aria-label="Receipt drop zone">
+                <div class="drop-zone-prompt">
+                  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="drop-icon" aria-hidden="true">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="17 8 12 3 7 8"></polyline>
+                    <line x1="12" y1="3" x2="12" y2="15"></line>
+                  </svg>
+                  <p class="drop-text">Drag & drop receipt here, or click to upload</p>
+                  <div class="drop-actions">
+                    <button type="button" id="selectFileBtn" class="btn-secondary btn-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                      Choose Image
+                    </button>
+                    <button type="button" id="openCameraBtn" class="btn-secondary btn-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      Camera
+                    </button>
+                  </div>
+                  <span class="drop-subtext">JPG, PNG, or WEBP up to 5 MB</span>
+                </div>
+
+                <!-- Hidden native file inputs -->
+                <input type="file" id="receiptFileInput" accept="image/jpeg,image/png,image/webp" class="visually-hidden">
+                <input type="file" id="receiptCameraInput" accept="image/*" capture="environment" class="visually-hidden">
+              </div>
+
+              <!-- Selected Receipt Preview Card -->
+              <div id="receiptPreviewContainer" class="preview-card hidden">
+                <div class="preview-thumbnail-wrapper">
+                  <img id="receiptPreviewImg" src="" alt="Receipt preview thumbnail" class="preview-thumbnail">
+                </div>
+                <div class="preview-info">
+                  <span id="receiptFileName" class="preview-name">receipt.jpg</span>
+                  <div class="preview-buttons">
+                    <button type="button" id="scanReceiptBtn" class="btn-primary btn-sm">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      Scan & Extract
+                    </button>
+                    <button type="button" id="removePreviewBtn" class="btn-outline btn-sm" aria-label="Remove receipt preview">
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Receipt Processing Spinner -->
+              <div id="receiptSpinnerContainer" class="spinner-container hidden" role="status" aria-live="polite">
+                <div class="spinner"></div>
+                <span id="receiptSpinnerText" class="spinner-text">Analyzing receipt...</span>
+              </div>
+
+              <!-- Receipt Error Banner -->
+              <div id="receiptErrorBanner" class="error-banner hidden" role="alert" aria-live="assertive">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                <span id="receiptErrorText"></span>
+              </div>
+            </section>
+
+          </div>
+
+          <!-- Right Column: Monthly Transactions List -->
+          <div class="column-right">
+
+            <section class="panel" aria-labelledby="txListHeading">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <h2 id="txListHeading" class="panel-title">Monthly Transactions</h2>
+                  <span id="txCountBadge" class="count-badge">0 transactions</span>
+                </div>
+              </div>
+
+              <div class="tx-list-wrapper">
+                <div id="transactionList" class="tx-list" role="feed" aria-label="List of transactions for the selected month">
+                  <!-- Rendered dynamically -->
+                </div>
+
+                <!-- Empty State when month has no data -->
+                <div id="emptyState" class="empty-state-card hidden">
+                  <div class="empty-icon-wrap" aria-hidden="true">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                  </div>
+                  <p class="empty-title">No transactions recorded</p>
+                  <p class="empty-desc">No income or expenses found for this month. Start tracking by adding a transaction or scanning a receipt on the left.</p>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ================= VIEW 2: RECEIPTS HISTORY (Screenshot 2) ================= -->
+      <div id="viewReceipts" class="hidden">
+        <div class="receipts-history-header">
+          <div>
+            <h2 class="view-title">Receipts History</h2>
+            <p class="view-subtitle">Inspect scanned receipts, examine original receipt images, and filter spending by category.</p>
+          </div>
+          <span id="historyReceiptCountBadge" class="count-badge">0 receipts</span>
+        </div>
+
+        <!-- Category Filter Pills -->
+        <div class="category-filter-bar" role="region" aria-label="Filter receipts by category">
+          <span class="filter-label">Filter by Category:</span>
+          <div id="receiptCategoryFilters" class="filter-pills-wrap">
+            <button type="button" class="cat-filter-btn active" data-category="all" aria-pressed="true">All Categories</button>
+            <button type="button" class="cat-filter-btn" data-category="Food" aria-pressed="false">Food</button>
+            <button type="button" class="cat-filter-btn" data-category="Transport" aria-pressed="false">Transport</button>
+            <button type="button" class="cat-filter-btn" data-category="Rent" aria-pressed="false">Rent</button>
+            <button type="button" class="cat-filter-btn" data-category="Shopping" aria-pressed="false">Shopping</button>
+            <button type="button" class="cat-filter-btn" data-category="Bills" aria-pressed="false">Bills</button>
+            <button type="button" class="cat-filter-btn" data-category="Health" aria-pressed="false">Health</button>
+            <button type="button" class="cat-filter-btn" data-category="Entertainment" aria-pressed="false">Entertainment</button>
+            <button type="button" class="cat-filter-btn" data-category="Other" aria-pressed="false">Other</button>
+          </div>
+        </div>
+
+        <!-- Receipts Gallery Grid -->
+        <div id="receiptsGrid" class="receipts-grid" role="feed" aria-label="Receipts history cards"></div>
+
+        <!-- Empty Receipts State -->
+        <div id="emptyReceiptsState" class="empty-state-card hidden">
+          <div class="empty-icon-wrap" aria-hidden="true">
+            <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+          </div>
+          <p class="empty-title">No receipts found</p>
+          <p class="empty-desc">No receipts recorded in this category. Go to the Dashboard and scan a receipt image to view it here!</p>
+        </div>
+      </div>
+
+      </div> <!-- End #appWorkspace -->
+    </div> <!-- End .app-container -->
+  </main>
+
+  <!-- Detailed Receipt Inspection Modal (Screenshot 2) -->
+  <div id="receiptDetailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="receiptModalTitle">
+    <div class="modal-card receipt-modal-card">
+      <div class="modal-header">
+        <div class="receipt-modal-title-wrap">
+          <h3 id="receiptModalTitle">Receipt Details</h3>
+          <span class="badge-verified">Verified</span>
+        </div>
+        <button type="button" id="receiptModalCloseBtn" class="btn-icon" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="receipt-modal-content">
+        <!-- Left: Receipt Image Preview -->
+        <div class="receipt-modal-image-col">
+          <h4 class="modal-col-heading">Receipt Image</h4>
+          <div class="receipt-modal-img-wrap">
+            <img id="receiptModalImg" src="" alt="Full scanned receipt image">
+          </div>
+        </div>
+
+        <!-- Right: Receipt Metadata (Screenshot 2) -->
+        <div class="receipt-modal-info-col">
+          <h4 class="modal-col-heading">Receipt Information</h4>
+          
+          <div class="receipt-info-field">
+            <label class="info-label">Merchant</label>
+            <div id="receiptModalMerchant" class="info-value info-merchant">Merchant Name</div>
+          </div>
+
+          <div class="receipt-info-field">
+            <label class="info-label">Date</label>
+            <div id="receiptModalDate" class="info-value">10 October 2026</div>
+          </div>
+
+          <div class="receipt-info-field">
+            <label class="info-label">Category</label>
+            <div><span id="receiptModalCategory" class="category-badge badge-food">Food</span></div>
+          </div>
+
+          <div class="receipt-info-field">
+            <label class="info-label">Items / Description</label>
+            <div id="receiptModalNote" class="info-value">Items purchased</div>
+          </div>
+
+          <!-- Multi-Category Breakdown inside Receipt Inspection Modal -->
+          <div id="receiptModalBreakdownSection" class="receipt-info-field hidden">
+            <label class="info-label">Category Breakdown</label>
+            <div id="receiptModalBreakdownList" class="modal-breakdown-list"></div>
+          </div>
+
+          <div class="receipt-total-box">
+            <span class="total-label">Total Amount</span>
+            <div id="receiptModalAmount" class="total-value">₹0.00</div>
+          </div>
+
+          <div class="receipt-modal-actions">
+            <button type="button" id="receiptModalDeleteBtn" class="btn-danger-outline">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              <span>Delete Receipt</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Authentication Modal (Login / Register) -->
+  <div id="authModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <div class="modal-card auth-modal-card">
+      <div class="modal-header">
+        <div class="auth-header-title">
+          <h2 id="authModalTitle">Sign In to Your Account</h2>
+          <p class="auth-subtitle">Save transactions to cloud database & access anywhere</p>
+        </div>
+        <button id="closeAuthBtn" class="btn-icon" aria-label="Close modal">&times;</button>
+      </div>
+
+      <!-- Auth Tabs: Login vs Register -->
+      <div class="auth-tabs" role="tablist">
+        <button type="button" id="tabLoginBtn" class="auth-tab-btn active" role="tab">Sign In</button>
+        <button type="button" id="tabRegisterBtn" class="auth-tab-btn" role="tab">Create Account</button>
+      </div>
+
+      <!-- Error Banner -->
+      <div id="authErrorBanner" class="auth-error-banner hidden" role="alert">
+        <span class="error-icon">⚠️</span>
+        <span id="authErrorText">Invalid credentials</span>
+      </div>
+
+      <form id="authForm" class="auth-form" novalidate>
+        <!-- Full Name (Only shown for Registration) -->
+        <div id="authNameGroup" class="form-group hidden">
+          <label for="authName" class="form-label">Full Name</label>
+          <input type="text" id="authName" class="form-input" placeholder="e.g. Ankit Rathore" autocomplete="name">
+        </div>
+
+        <div class="form-group">
+          <label for="authEmail" class="form-label">Email Address</label>
+          <input type="email" id="authEmail" class="form-input" placeholder="you@example.com" autocomplete="email" required>
+        </div>
+
+        <div class="form-group">
+          <label for="authPassword" class="form-label">Password</label>
+          <input type="password" id="authPassword" class="form-input" placeholder="••••••••" autocomplete="current-password" minlength="6" required>
+          <span class="form-hint">At least 6 characters</span>
+        </div>
+
+        <div class="modal-actions auth-actions">
+          <button type="submit" id="authSubmitBtn" class="btn-primary btn-block">Sign In</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- AI Chatbot Drawer / Side Panel -->
+  <aside id="chatDrawer" class="chat-drawer" aria-labelledby="chatHeading" aria-hidden="true">
+    <div class="chat-header">
+      <div class="chat-title-group">
+        <div class="ai-spark" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+        </div>
+        <div>
+          <h2 id="chatHeading" class="chat-title">AI Financial Assistant</h2>
+          <span class="chat-status">Ask about your spending & budget</span>
+        </div>
+      </div>
+      <div class="chat-header-actions">
+        <button id="clearChatBtn" class="btn-icon" aria-label="Clear chat history" title="Clear chat history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+        </button>
+        <button id="closeChatBtn" class="btn-icon" aria-label="Close assistant panel" title="Close">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Suggested Question Chips -->
+    <div class="suggested-chips-wrapper" role="region" aria-label="Suggested finance questions">
+      <span class="chips-label">Try asking:</span>
+      <div id="suggestedChipsContainer" class="chips-container">
+        <button type="button" class="suggested-chip" data-question="How much did I spend on food this month?">Food spending this month?</button>
+        <button type="button" class="suggested-chip" data-question="What was my biggest expense?">Biggest expense?</button>
+        <button type="button" class="suggested-chip" data-question="Am I spending more than last month?">Spending vs last month?</button>
+        <button type="button" class="suggested-chip" data-question="Give me tips to save money.">Tips to save money</button>
+      </div>
+    </div>
+
+    <!-- Message Bubbles Container -->
+    <div id="chatMessages" class="chat-messages" role="log" aria-live="polite">
+      <div class="chat-row chat-row-assistant">
+        <div class="chat-bubble chat-bubble-assistant">
+          <div class="chat-sender">Financial Assistant</div>
+          <div class="chat-text">Hello! I'm your personal finance assistant. Ask me questions about your monthly spending, category breakdown, or tips to optimize your budget!</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Animated Typing Indicator -->
+    <div id="chatTypingIndicator" class="typing-indicator-row hidden" aria-live="polite">
+      <div class="typing-bubble">
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+        <span class="typing-dot"></span>
+      </div>
+    </div>
+
+    <!-- Chat Input Area -->
+    <div class="chat-footer">
+      <div class="chat-input-wrapper">
+        <input type="text" id="chatInput" class="chat-input" placeholder="Ask about your spending..." aria-label="Type your question">
+        <button type="button" id="chatSendBtn" class="chat-send-btn" aria-label="Send question" title="Send">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ES Module Application Bootstrap -->
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
